@@ -18,8 +18,8 @@ use turbopack_node::execution_context::ExecutionContextVc;
 
 use crate::{
     next_client::context::{
-        get_client_chunking_context, get_client_module_options_context,
-        get_client_resolve_options_context, get_client_runtime_entries, ClientContextType,
+        get_client_module_options_context, get_client_resolve_options_context,
+        get_client_runtime_entries, get_dev_client_chunking_context, ClientContextType,
     },
     next_config::NextConfigVc,
     next_import_map::{insert_alias_option, insert_next_shared_aliases},
@@ -45,7 +45,7 @@ pub async fn get_fallback_page(
         ty,
         next_config,
     );
-    let chunking_context = get_client_chunking_context(
+    let chunking_context = get_dev_client_chunking_context(
         project_path,
         dev_server_root,
         client_compile_time_info.environment(),

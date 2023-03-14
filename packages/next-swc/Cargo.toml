@@ -5,6 +5,7 @@ members = [
   "crates/napi",
   "crates/wasm",
   "crates/next-binding",
+  "crates/next-build",
   "crates/next-core",
   "crates/next-dev",
   "crates/next-dev-tests",
@@ -26,7 +27,8 @@ lto = true
 [workspace.dependencies]
 # Workspace crates
 next-binding = { path = "crates/next-binding" }
-next-core = { path = "crates/next-core", default-features = false }
+next-build = { path = "crates/next-build" }
+next-core = { path = "crates/next-core", default-features = false  }
 next-dev = { path = "crates/next-dev" }
 next-dev-tests = { path = "crates/next-dev-tests" }
 next-transform-font = { path = "crates/next-transform-font" }
@@ -61,6 +63,7 @@ turbo-tasks-memory = { git = "https://github.com/vercel/turbo.git", rev = "alexk
 turbo-tasks-testing = { git = "https://github.com/vercel/turbo.git", rev = "alexkirsz/web-700-customizable-runtime-in-ecmascript" }
 turbo-updater = { git = "https://github.com/vercel/turbo.git", rev = "alexkirsz/web-700-customizable-runtime-in-ecmascript" }
 turbopack = { git = "https://github.com/vercel/turbo.git", rev = "alexkirsz/web-700-customizable-runtime-in-ecmascript" }
+turbopack-build = { git = "https://github.com/vercel/turbo.git", rev = "alexkirsz/web-700-customizable-runtime-in-ecmascript" }
 turbopack-cli-utils = { git = "https://github.com/vercel/turbo.git", rev = "alexkirsz/web-700-customizable-runtime-in-ecmascript" }
 turbopack-core = { git = "https://github.com/vercel/turbo.git", rev = "alexkirsz/web-700-customizable-runtime-in-ecmascript" }
 turbopack-create-test-app = { git = "https://github.com/vercel/turbo.git", rev = "alexkirsz/web-700-customizable-runtime-in-ecmascript" }

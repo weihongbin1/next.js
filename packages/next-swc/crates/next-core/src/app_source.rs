@@ -52,9 +52,9 @@ use crate::{
     fallback::get_fallback_page,
     next_client::{
         context::{
-            get_client_assets_path, get_client_chunking_context, get_client_compile_time_info,
-            get_client_module_options_context, get_client_resolve_options_context,
-            get_client_runtime_entries, ClientContextType,
+            get_client_compile_time_info, get_client_module_options_context,
+            get_client_resolve_options_context, get_client_runtime_entries,
+            get_dev_client_assets_path, get_dev_client_chunking_context, ClientContextType,
         },
         transition::NextClientTransition,
     },
@@ -80,16 +80,16 @@ use crate::{
 async fn next_client_transition(
     project_path: FileSystemPathVc,
     execution_context: ExecutionContextVc,
-    server_root: FileSystemPathVc,
+    client_root: FileSystemPathVc,
     app_dir: FileSystemPathVc,
     env: ProcessEnvVc,
     client_compile_time_info: CompileTimeInfoVc,
     next_config: NextConfigVc,
 ) -> Result<TransitionVc> {
     let ty = Value::new(ClientContextType::App { app_dir });
-    let client_chunking_context = get_client_chunking_context(
+    let client_chunking_context = get_dev_client_chunking_context(
         project_path,
-        server_root,
+        client_root,
         client_compile_time_info.environment(),
         ty,
     );
@@ -107,7 +107,7 @@ async fn next_client_transition(
 
     Ok(NextClientTransition {
         is_app: true,
-        server_root,
+        client_root,
         client_chunking_context,
         client_module_options_context,
         client_resolve_options_context,
@@ -193,7 +193,7 @@ fn next_route_transition(
         project_path,
         output_path.join("edge"),
         output_path.join("edge/chunks"),
-        get_client_assets_path(server_root, Value::new(ClientContextType::App { app_dir })),
+        get_dev_client_assets_path(server_root, Value::new(ClientContextType::App { app_dir })),
         edge_compile_time_info.environment(),
     )
     .build();
@@ -311,10 +311,10 @@ fn app_context(
 #[turbo_tasks::function]
 pub async fn create_app_source(
     app_structure: OptionAppStructureVc,
-    project_path: FileSystemPathVc,
+    project_root: FileSystemPathVc,
     execution_context: ExecutionContextVc,
-    output_path: FileSystemPathVc,
-    server_root: FileSystemPathVc,
+    node_root: FileSystemPathVc,
+    client_root: FileSystemPathVc,
     env: ProcessEnvVc,
     browserslist_query: &str,
     next_config: NextConfigVc,
@@ -328,40 +328,40 @@ pub async fn create_app_source(
     let client_compile_time_info = get_client_compile_time_info(browserslist_query);
 
     let context_ssr = app_context(
-        project_path,
+        project_root,
         execution_context,
-        server_root,
+        client_root,
         app_dir,
         env,
         client_compile_time_info,
         true,
         next_config,
         server_addr,
-        output_path,
+        node_root,
     );
     let context = app_context(
-        project_path,
+        project_root,
         execution_context,
-        server_root,
+        client_root,
         app_dir,
         env,
         client_compile_time_info,
         false,
         next_config,
         server_addr,
-        output_path,
+        node_root,
     );
 
     let injected_env = env_for_js(EnvMapVc::empty().into(), false, next_config);
     let env = CustomProcessEnvVc::new(env, next_config.env()).as_process_env();
 
     let server_runtime_entries =
-        vec![ProcessEnvAssetVc::new(project_path, injected_env).as_ecmascript_chunk_placeable()];
+        vec![ProcessEnvAssetVc::new(project_root, injected_env).as_ecmascript_chunk_placeable()];
 
     let fallback_page = get_fallback_page(
-        project_path,
+        project_root,
         execution_context,
-        server_root,
+        client_root,
         env,
         client_compile_time_info,
         next_config,
@@ -371,12 +371,13 @@ pub async fn create_app_source(
         app_structure,
         context_ssr,
         context,
-        project_path,
+        project_root,
+        project_root,
+        client_root,
         env,
-        server_root,
         EcmascriptChunkPlaceablesVc::cell(server_runtime_entries),
         fallback_page,
-        output_path,
+        node_root,
     );
     Ok(source)
 }
@@ -388,11 +389,12 @@ async fn create_app_source_for_directory(
     context_ssr: AssetContextVc,
     context: AssetContextVc,
     project_path: FileSystemPathVc,
+    project_root: FileSystemPathVc,
+    client_root: FileSystemPathVc,
     env: ProcessEnvVc,
-    server_root: FileSystemPathVc,
     runtime_entries: EcmascriptChunkPlaceablesVc,
     fallback_page: DevHtmlAssetVc,
-    intermediate_output_path_root: FileSystemPathVc,
+    node_root: FileSystemPathVc,
 ) -> Result<ContentSourceVc> {
     let AppStructure {
         item,
@@ -411,25 +413,25 @@ async fn create_app_source_for_directory(
                 segments: layouts,
             } => {
                 let LayoutSegment { target, .. } = *segment.await?;
-                let pathname = pathname_for_path(server_root, url, false, false);
+                let pathname = pathname_for_path(client_root, url);
                 let params_matcher = NextParamsMatcherVc::new(pathname);
 
                 sources.push(create_node_rendered_source(
-                    project_path,
+                    project_root,
                     env,
                     specificity,
-                    server_root,
+                    client_root,
                     params_matcher.into(),
                     pathname,
                     AppRenderer {
                         context_ssr,
                         context,
-                        server_root,
+                        client_root,
                         layout_path: layouts,
                         page_path: page,
                         target,
-                        project_path,
-                        intermediate_output_path: intermediate_output_path_root,
+                        project_root,
+                        node_path: node_root,
                     }
                     .cell()
                     .into(),
@@ -443,23 +445,23 @@ async fn create_app_source_for_directory(
                 route,
                 ..
             } => {
-                let pathname = pathname_for_path(server_root, url, false, false);
+                let pathname = pathname_for_path(client_root, url);
                 let params_matcher = NextParamsMatcherVc::new(pathname);
 
                 sources.push(create_node_api_source(
-                    project_path,
+                    project_root,
                     env,
                     specificity,
-                    server_root,
+                    client_root,
                     params_matcher.into(),
                     pathname,
                     AppRoute {
                         context: context_ssr,
-                        server_root,
+                        client_root,
                         entry_path: route,
-                        project_path,
-                        intermediate_output_path: intermediate_output_path_root,
-                        output_root: intermediate_output_path_root,
+                        project_root,
+                        node_path: node_root,
+                        node_root,
                     }
                     .cell()
                     .into(),
@@ -490,11 +492,12 @@ async fn create_app_source_for_directory(
                     context_ssr,
                     context,
                     project_path,
+                    project_root,
+                    client_root,
                     env,
-                    server_root,
                     runtime_entries,
                     fallback_page,
-                    intermediate_output_path_root,
+                    node_root,
                 )
             }))
             .collect(),
@@ -508,12 +511,12 @@ async fn create_app_source_for_directory(
 struct AppRenderer {
     context_ssr: AssetContextVc,
     context: AssetContextVc,
-    server_root: FileSystemPathVc,
+    client_root: FileSystemPathVc,
     layout_path: LayoutSegmentsVc,
     page_path: FileSystemPathVc,
     target: FileSystemPathVc,
-    project_path: FileSystemPathVc,
-    intermediate_output_path: FileSystemPathVc,
+    project_root: FileSystemPathVc,
+    node_path: FileSystemPathVc,
 }
 
 #[turbo_tasks::value_impl]
@@ -542,7 +545,7 @@ impl AppRendererVc {
         let segments: Vec<_> = layout_and_page
             .into_iter()
             .fold(
-                (this.server_root, Vec::new()),
+                (this.client_root, Vec::new()),
                 |(last_path, mut futures), segment| {
                     (segment.target, {
                         futures.push(async move {
@@ -635,21 +638,21 @@ import BOOTSTRAP from {};
 
         let file = File::from(result.build());
         let asset = VirtualAssetVc::new(path.join("entry"), file.into());
-        let (context, intermediate_output_path) = if is_rsc {
-            (this.context, this.intermediate_output_path.join("rsc"))
+        let (context, node_path) = if is_rsc {
+            (this.context, this.node_path.join("rsc"))
         } else {
-            (this.context_ssr, this.intermediate_output_path)
+            (this.context_ssr, this.node_path)
         };
 
         let chunking_context = DevChunkingContextVc::builder(
-            this.project_path,
-            intermediate_output_path,
-            intermediate_output_path.join("chunks"),
-            this.server_root.join("_next/static/assets"),
+            this.project_root,
+            node_path,
+            node_path.join("chunks"),
+            this.client_root.join("_next/static/assets"),
             context.compile_time_info().environment(),
         )
         .layer("ssr")
-        .css_chunk_root_path(this.server_root.join("_next/static/chunks"))
+        .css_chunk_root_path(this.client_root.join("_next/static/chunks"))
         .build();
 
         Ok(NodeRenderingEntry {
@@ -666,8 +669,8 @@ import BOOTSTRAP from {};
                 context.compile_time_info(),
             ),
             chunking_context,
-            intermediate_output_path,
-            output_root: intermediate_output_path.root(),
+            node_path,
+            node_root: node_path.root(),
         }
         .cell())
     }
@@ -693,10 +696,10 @@ impl NodeEntry for AppRenderer {
 struct AppRoute {
     context: AssetContextVc,
     entry_path: FileSystemPathVc,
-    intermediate_output_path: FileSystemPathVc,
-    project_path: FileSystemPathVc,
-    server_root: FileSystemPathVc,
-    output_root: FileSystemPathVc,
+    node_path: FileSystemPathVc,
+    project_root: FileSystemPathVc,
+    client_root: FileSystemPathVc,
+    node_root: FileSystemPathVc,
 }
 
 #[turbo_tasks::value_impl]
@@ -710,14 +713,14 @@ impl AppRouteVc {
         );
 
         let chunking_context = DevChunkingContextVc::builder(
-            this.project_path,
-            this.intermediate_output_path,
-            this.intermediate_output_path.join("chunks"),
-            this.server_root.join("_next/static/assets"),
+            this.project_root,
+            this.node_path,
+            this.node_path.join("chunks"),
+            this.client_root.join("_next/static/assets"),
             this.context.compile_time_info().environment(),
         )
         .layer("ssr")
-        .css_chunk_root_path(this.server_root.join("_next/static/chunks"))
+        .css_chunk_root_path(this.client_root.join("_next/static/chunks"))
         .build();
 
         let entry = this.context.with_transition("next-route").process(
@@ -738,8 +741,8 @@ impl AppRouteVc {
                 }),
             ),
             chunking_context,
-            intermediate_output_path: this.intermediate_output_path,
-            output_root: this.output_root,
+            node_path: this.node_path,
+            node_root: this.node_root,
         }
         .cell())
     }

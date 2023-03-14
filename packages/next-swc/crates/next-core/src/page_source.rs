@@ -34,6 +34,7 @@ use turbopack_ecmascript::{
 use turbopack_env::ProcessEnvAssetVc;
 use turbopack_node::{
     execution_context::ExecutionContextVc,
+    get_intermediate_asset,
     render::{
         node_api_source::create_node_api_source, rendered_source::create_node_rendered_source,
     },
@@ -47,9 +48,10 @@ use crate::{
     fallback::get_fallback_page,
     next_client::{
         context::{
-            get_client_assets_path, get_client_chunking_context, get_client_compile_time_info,
+            get_build_client_assets_path, get_client_compile_time_info,
             get_client_module_options_context, get_client_resolve_options_context,
-            get_client_runtime_entries, ClientContextType,
+            get_client_runtime_entries, get_dev_client_assets_path,
+            get_dev_client_chunking_context, ClientContextType,
         },
         transition::NextClientTransition,
     },
@@ -91,7 +93,7 @@ pub async fn create_page_source(
     let Some(pages_structure) = *pages_structure.await? else {
         return Ok(NoContentSourceVc::new().into());
     };
-    let pages_dir = pages_structure.directory().resolve().await?;
+    let pages_dir = pages_structure.project_path().resolve().await?;
 
     let client_ty = Value::new(ClientContextType::Pages { pages_dir });
     let server_ty = Value::new(ServerContextType::Pages { pages_dir });
@@ -108,7 +110,7 @@ pub async fn create_page_source(
     let client_resolve_options_context =
         get_client_resolve_options_context(project_path, client_ty, next_config, execution_context);
 
-    let client_chunking_context = get_client_chunking_context(
+    let client_chunking_context = get_dev_client_chunking_context(
         project_path,
         server_root,
         client_compile_time_info.environment(),
@@ -124,7 +126,7 @@ pub async fn create_page_source(
         client_module_options_context,
         client_resolve_options_context,
         client_compile_time_info,
-        server_root,
+        client_root: server_root,
         runtime_entries: client_runtime_entries,
     }
     .cell()
@@ -137,7 +139,7 @@ pub async fn create_page_source(
         project_path,
         output_path.join("edge"),
         output_path.join("edge/chunks"),
-        get_client_assets_path(
+        get_dev_client_assets_path(
             server_root,
             Value::new(ClientContextType::Pages { pages_dir }),
         ),
@@ -308,46 +310,46 @@ async fn create_page_source_for_file(
     page_asset: AssetVc,
     runtime_entries: EcmascriptChunkPlaceablesVc,
     fallback_page: DevHtmlAssetVc,
-    server_root: FileSystemPathVc,
-    server_path: FileSystemPathVc,
+    client_root: FileSystemPathVc,
+    client_path: FileSystemPathVc,
     is_api_path: bool,
-    intermediate_output_path: FileSystemPathVc,
-    output_root: FileSystemPathVc,
+    node_path: FileSystemPathVc,
+    node_root: FileSystemPathVc,
 ) -> Result<ContentSourceVc> {
     let server_chunking_context = DevChunkingContextVc::builder(
         project_path,
-        intermediate_output_path,
-        intermediate_output_path.join("chunks"),
-        get_client_assets_path(
-            server_root,
+        node_path,
+        node_path.join("chunks"),
+        get_dev_client_assets_path(
+            client_root,
             Value::new(ClientContextType::Pages { pages_dir }),
         ),
         server_context.compile_time_info().environment(),
     )
     .build();
 
-    let data_intermediate_output_path = intermediate_output_path.join("data");
+    let data_node_path = node_path.join("data");
 
     let server_data_chunking_context = DevChunkingContextVc::builder(
         project_path,
-        data_intermediate_output_path,
-        data_intermediate_output_path.join("chunks"),
-        get_client_assets_path(
-            server_root,
+        data_node_path,
+        data_node_path.join("chunks"),
+        get_dev_client_assets_path(
+            client_root,
             Value::new(ClientContextType::Pages { pages_dir }),
         ),
         server_context.compile_time_info().environment(),
     )
     .build();
 
-    let client_chunking_context = get_client_chunking_context(
+    let client_chunking_context = get_dev_client_chunking_context(
         project_path,
-        server_root,
+        client_root,
         client_context.compile_time_info().environment(),
         Value::new(ClientContextType::Pages { pages_dir }),
     );
 
-    let pathname = pathname_for_path(server_root, server_path, true, false);
+    let pathname = pathname_for_path(client_root, client_path);
     let route_matcher = NextParamsMatcherVc::new(pathname);
 
     Ok(if is_api_path {
@@ -355,7 +357,7 @@ async fn create_page_source_for_file(
             project_path,
             env,
             specificity,
-            server_root,
+            client_root,
             route_matcher.into(),
             pathname,
             SsrEntry {
@@ -363,15 +365,15 @@ async fn create_page_source_for_file(
                 entry_asset: page_asset,
                 ty: SsrType::AutoApi,
                 chunking_context: server_chunking_context,
-                intermediate_output_path,
-                output_root,
+                node_path,
+                node_root,
             }
             .cell()
             .into(),
             runtime_entries,
         )
     } else {
-        let data_pathname = pathname_for_path(server_root, server_path, true, true);
+        let data_pathname = pathname_for_path(client_root, client_path);
         let data_route_matcher =
             NextPrefixSuffixParamsMatcherVc::new(data_pathname, "_next/data/development/", ".json");
 
@@ -380,8 +382,8 @@ async fn create_page_source_for_file(
             entry_asset: page_asset,
             ty: SsrType::Html,
             chunking_context: server_chunking_context,
-            intermediate_output_path,
-            output_root,
+            node_path,
+            node_root,
         }
         .cell()
         .into();
@@ -391,8 +393,8 @@ async fn create_page_source_for_file(
             entry_asset: page_asset,
             ty: SsrType::Data,
             chunking_context: server_data_chunking_context,
-            intermediate_output_path: data_intermediate_output_path,
-            output_root,
+            node_path: data_node_path,
+            node_root,
         }
         .cell()
         .into();
@@ -402,7 +404,7 @@ async fn create_page_source_for_file(
                 project_path,
                 env,
                 specificity,
-                server_root,
+                client_root,
                 route_matcher.into(),
                 pathname,
                 ssr_entry,
@@ -413,7 +415,7 @@ async fn create_page_source_for_file(
                 project_path,
                 env,
                 specificity,
-                server_root,
+                client_root,
                 data_route_matcher.into(),
                 pathname,
                 ssr_data_entry,
@@ -421,7 +423,7 @@ async fn create_page_source_for_file(
                 fallback_page,
             ),
             create_page_loader(
-                server_root,
+                client_root,
                 client_context,
                 client_chunking_context,
                 page_asset,
@@ -458,15 +460,15 @@ async fn create_not_found_page_source(
     runtime_entries: EcmascriptChunkPlaceablesVc,
     fallback_page: DevHtmlAssetVc,
     server_root: FileSystemPathVc,
-    intermediate_output_path: FileSystemPathVc,
+    node_path: FileSystemPathVc,
     specificity: SpecificityVc,
     route_matcher: RouteMatcherVc,
 ) -> Result<ContentSourceVc> {
     let server_chunking_context = DevChunkingContextVc::builder(
         project_path,
-        intermediate_output_path,
-        intermediate_output_path.join("chunks"),
-        get_client_assets_path(
+        node_path,
+        node_path.join("chunks"),
+        get_dev_client_assets_path(
             server_root,
             Value::new(ClientContextType::Pages { pages_dir }),
         ),
@@ -474,7 +476,7 @@ async fn create_not_found_page_source(
     )
     .build();
 
-    let client_chunking_context = get_client_chunking_context(
+    let client_chunking_context = get_dev_client_chunking_context(
         project_path,
         server_root,
         client_context.compile_time_info().environment(),
@@ -505,8 +507,8 @@ async fn create_not_found_page_source(
         entry_asset,
         ty: SsrType::Html,
         chunking_context: server_chunking_context,
-        intermediate_output_path,
-        output_root: intermediate_output_path,
+        node_path,
+        node_root: node_path,
     }
     .cell()
     .into();
@@ -542,7 +544,7 @@ async fn create_not_found_page_source(
 #[turbo_tasks::function]
 async fn create_page_source_for_directory(
     pages_structure: PagesStructureVc,
-    project_path: FileSystemPathVc,
+    project_root: FileSystemPathVc,
     env: ProcessEnvVc,
     server_context: AssetContextVc,
     server_data_context: AssetContextVc,
@@ -550,8 +552,8 @@ async fn create_page_source_for_directory(
     pages_dir: FileSystemPathVc,
     runtime_entries: EcmascriptChunkPlaceablesVc,
     fallback_page: DevHtmlAssetVc,
-    server_root: FileSystemPathVc,
-    output_root: FileSystemPathVc,
+    client_root: FileSystemPathVc,
+    node_root: FileSystemPathVc,
 ) -> Result<ContentSourceVc> {
     let PagesStructure {
         ref items,
@@ -563,49 +565,49 @@ async fn create_page_source_for_directory(
     for item in items.iter() {
         let source = match *item.await? {
             PagesStructureItem::Page {
-                page,
-                specificity,
-                url,
-            } => create_page_source_for_file(
                 project_path,
+                next_router_path,
+                specificity,
+            } => create_page_source_for_file(
+                project_root,
                 env,
                 server_context,
                 server_data_context,
                 client_context,
                 pages_dir,
                 specificity,
-                SourceAssetVc::new(page).into(),
+                SourceAssetVc::new(project_path).into(),
                 runtime_entries,
                 fallback_page,
-                server_root,
-                url,
+                client_root,
+                next_router_path,
                 false,
-                output_root,
-                output_root,
+                node_root,
+                node_root,
             )
-            .issue_context(page, "Next.js pages directory"),
+            .issue_context(project_path, "Next.js pages directory"),
             PagesStructureItem::Api {
-                api,
-                specificity,
-                url,
-            } => create_page_source_for_file(
                 project_path,
+                next_router_path,
+                specificity,
+            } => create_page_source_for_file(
+                project_root,
                 env,
                 server_context,
                 server_data_context,
                 client_context,
                 pages_dir,
                 specificity,
-                SourceAssetVc::new(api).into(),
+                SourceAssetVc::new(project_path).into(),
                 runtime_entries,
                 fallback_page,
-                server_root,
-                url,
+                client_root,
+                next_router_path,
                 true,
-                output_root,
-                output_root,
+                node_root,
+                node_root,
             )
-            .issue_context(api, "Next.js pages api directory"),
+            .issue_context(project_path, "Next.js pages api directory"),
         };
         sources.push(source);
     }
@@ -613,7 +615,7 @@ async fn create_page_source_for_directory(
     for child in children.iter() {
         sources.push(create_page_source_for_directory(
             *child,
-            project_path,
+            project_root,
             env,
             server_context,
             server_data_context,
@@ -621,18 +623,28 @@ async fn create_page_source_for_directory(
             pages_dir,
             runtime_entries,
             fallback_page,
-            server_root,
-            output_root,
+            client_root,
+            node_root,
         ))
     }
 
     Ok(CombinedContentSource { sources }.cell().into())
 }
 
-#[derive(
-    Clone, Copy, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, PartialOrd, Ord, TraceRawVcs,
-)]
-enum SsrType {
+/// The node.js renderer for SSR of pages.
+#[turbo_tasks::value]
+pub struct SsrEntry {
+    context: AssetContextVc,
+    entry_asset: AssetVc,
+    ty: SsrType,
+    chunking_context: ChunkingContextVc,
+    node_path: FileSystemPathVc,
+    node_root: FileSystemPathVc,
+}
+
+#[turbo_tasks::value(serialization = "auto_for_input")]
+#[derive(Clone, Copy, Debug, Hash, PartialOrd, Ord)]
+pub enum SsrType {
     Api,
     EdgeApi,
     AutoApi,
@@ -640,21 +652,10 @@ enum SsrType {
     Data,
 }
 
-/// The node.js renderer for SSR of pages.
-#[turbo_tasks::value]
-struct SsrEntry {
-    context: AssetContextVc,
-    entry_asset: AssetVc,
-    ty: SsrType,
-    chunking_context: ChunkingContextVc,
-    intermediate_output_path: FileSystemPathVc,
-    output_root: FileSystemPathVc,
-}
-
 #[turbo_tasks::value_impl]
 impl SsrEntryVc {
     #[turbo_tasks::function]
-    async fn entry(self) -> Result<NodeRenderingEntryVc> {
+    pub async fn entry(self) -> Result<NodeRenderingEntryVc> {
         let this = self.await?;
         let entry_asset_page = this.context.process(
             this.entry_asset,
@@ -728,8 +729,8 @@ impl SsrEntryVc {
                 InnerAssetsVc::cell(inner_assets),
             ),
             chunking_context: this.chunking_context,
-            intermediate_output_path: this.intermediate_output_path,
-            output_root: this.output_root,
+            node_path: this.node_path,
+            node_root: this.node_root,
         }
         .cell())
     }

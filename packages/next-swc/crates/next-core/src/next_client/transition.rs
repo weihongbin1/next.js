@@ -35,7 +35,7 @@ pub struct NextClientTransition {
     pub client_module_options_context: ModuleOptionsContextVc,
     pub client_resolve_options_context: ResolveOptionsContextVc,
     pub client_chunking_context: ChunkingContextVc,
-    pub server_root: FileSystemPathVc,
+    pub client_root: FileSystemPathVc,
     pub runtime_entries: RuntimeEntriesVc,
 }
 
