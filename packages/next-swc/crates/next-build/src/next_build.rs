@@ -10,17 +10,14 @@ use next_core::{
     app_structure::{find_app_structure, AppStructureVc},
     env::load_env,
     next_config::{load_next_config, NextConfigVc},
-    pages_structure::{
-        find_pages_structure, PagesStructureItem, PagesStructureItemVc, PagesStructureVc,
-    },
+    pages_structure::find_pages_structure,
 };
 use serde::Serialize;
 use turbo_tasks::{
-    graph::{GraphTraversal, ReverseTopological},
     CollectiblesSource, CompletionVc, RawVc, TransientInstance, TransientValue, TryJoinIterExt,
-    Value, ValueToString,
+    ValueToString,
 };
-use turbo_tasks_fs::{DiskFileSystemVc, File, FileContent, FileSystem, FileSystemVc};
+use turbo_tasks_fs::{DiskFileSystemVc, FileContent, FileSystem, FileSystemVc};
 use turbopack::evaluate_context::node_build_environment;
 use turbopack_cli_utils::issue::{ConsoleUiVc, LogOptions};
 use turbopack_core::{
@@ -28,13 +25,11 @@ use turbopack_core::{
     chunk::ChunkGroupVc,
     environment::ServerAddrVc,
     issue::{IssueReporter, IssueReporterVc, IssueSeverity, IssueVc},
-    server_fs::ServerFileSystemVc,
-    virtual_fs::{VirtualFileSystem, VirtualFileSystemVc},
+    virtual_fs::VirtualFileSystemVc,
 };
 use turbopack_dev::DevChunkingContextVc;
 use turbopack_node::{
     all_assets_from_entries, all_assets_from_entry, execution_context::ExecutionContextVc,
-    partition_assets,
 };
 
 use crate::{build_options::BuildOptions, next_pages::page_chunks::get_page_chunks};
@@ -122,6 +117,8 @@ pub(crate) async fn next_build(options: TransientInstance<BuildOptions>) -> Resu
         next_config,
         ServerAddrVc::empty(),
     );
+
+    handle_issues(page_chunks, issue_reporter).await?;
 
     {
         // Client manifest.
@@ -284,6 +281,41 @@ pub(crate) async fn next_build(options: TransientInstance<BuildOptions>) -> Resu
         pages_manifest_path
             .write(FileContent::Content(pages_manifest.into()).cell())
             .await?;
+
+        let middleware_manifest = serde_json::to_string_pretty(&MiddlewaresManifest {
+            functions: HashMap::new(),
+            sorted_middleware: vec![],
+            middleware: HashMap::new(),
+            version: 2,
+        })?;
+        let middleware_manifest_path = node_root.join("server/middleware-manifest.json");
+        middleware_manifest_path
+            .write(FileContent::Content(middleware_manifest.into()).cell())
+            .await?;
+
+        let next_font_manifest = serde_json::to_string_pretty(&NextFontManifest {
+            ..Default::default()
+        })?;
+        let next_font_manifest_path = node_root.join("server/next-font-manifest.json");
+        next_font_manifest_path
+            .write(FileContent::Content(next_font_manifest.into()).cell())
+            .await?;
+
+        let font_manifest = serde_json::to_string_pretty(&FontManifest {
+            ..Default::default()
+        })?;
+        let font_manifest_path = node_root.join("server/font-manifest.json");
+        font_manifest_path
+            .write(FileContent::Content(font_manifest.into()).cell())
+            .await?;
+
+        let react_loadable_manifest = serde_json::to_string_pretty(&ReactLoadableManifest {
+            manifest: HashMap::new(),
+        })?;
+        let react_loadable_manifest_path = node_root.join("react-loadable-manifest.json");
+        react_loadable_manifest_path
+            .write(FileContent::Content(react_loadable_manifest.into()).cell())
+            .await?;
     }
 
     let app_structure = find_app_structure(project_root, client_root, next_config);
@@ -303,13 +335,55 @@ struct PagesManifest {
 #[derive(Serialize, Default)]
 #[serde(rename_all = "camelCase")]
 struct BuildManifest {
-    polyfill_files: Vec<String>,
     dev_files: Vec<String>,
     amp_dev_files: Vec<String>,
-    amp_first_files: Vec<String>,
+    polyfill_files: Vec<String>,
     low_priority_files: Vec<String>,
     root_main_files: Vec<String>,
     pages: HashMap<String, Vec<String>>,
+    amp_first_pages: Vec<String>,
+}
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct MiddlewaresManifest {
+    sorted_middleware: Vec<()>,
+    middleware: HashMap<String, ()>,
+    functions: HashMap<String, ()>,
+    version: u32,
+}
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct ReactLoadableManifest {
+    #[serde(flatten)]
+    manifest: HashMap<String, ReactLoadableManifestEntry>,
+}
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct ReactLoadableManifestEntry {
+    id: u32,
+    files: Vec<String>,
+}
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct NextFontManifest {
+    pages: HashMap<String, Vec<String>>,
+    app: HashMap<String, Vec<String>>,
+    app_using_size_adjust: bool,
+    pages_using_size_adjust: bool,
+}
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct FontManifest(Vec<FontManifestEntry>);
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct FontManifestEntry {
+    url: String,
+    content: String,
 }
 
 #[turbo_tasks::function]

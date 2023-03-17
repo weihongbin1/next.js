@@ -117,7 +117,9 @@ export function requirePage(
       throw new MissingStaticPage(page, err.message)
     })
   }
-  return require(pagePath)
+  const exp = require(pagePath)
+  console.log('requiring page', page, 'at', pagePath, 'got', exp)
+  return exp
 }
 
 export function requireFontManifest(distDir: string) {

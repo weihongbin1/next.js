@@ -50,6 +50,7 @@ use crate::{
     embed_js::next_js_file,
     env::env_for_js,
     fallback::get_fallback_page,
+    mode::NextMode,
     next_client::{
         context::{
             get_client_compile_time_info, get_client_module_options_context,
@@ -98,6 +99,7 @@ async fn next_client_transition(
         execution_context,
         client_compile_time_info.environment(),
         ty,
+        Value::new(NextMode::Development),
         next_config,
     );
     let client_runtime_entries =
@@ -133,6 +135,7 @@ fn next_ssr_client_module_transition(
             project_path,
             execution_context,
             ty,
+            Value::new(NextMode::Development),
             next_config,
         ),
         ssr_resolve_options_context: get_server_resolve_options_context(
@@ -161,8 +164,13 @@ fn next_layout_entry_transition(
     let rsc_compile_time_info = get_server_compile_time_info(ty, process_env, server_addr);
     let rsc_resolve_options_context =
         get_server_resolve_options_context(project_path, ty, next_config, execution_context);
-    let rsc_module_options_context =
-        get_server_module_options_context(project_path, execution_context, ty, next_config);
+    let rsc_module_options_context = get_server_module_options_context(
+        project_path,
+        execution_context,
+        ty,
+        Value::new(NextMode::Development),
+        next_config,
+    );
 
     NextLayoutEntryTransition {
         rsc_compile_time_info,
@@ -230,6 +238,7 @@ fn app_context(
 ) -> AssetContextVc {
     let next_server_to_client_transition = NextServerToClientTransition { ssr }.cell().into();
 
+    let mode = Value::new(NextMode::Development);
     let mut transitions = HashMap::new();
     transitions.insert(
         "next-route".to_string(),
@@ -278,6 +287,7 @@ fn app_context(
             project_path,
             execution_context,
             client_ty,
+            mode,
             server_root,
             client_compile_time_info,
             next_config,
@@ -300,7 +310,13 @@ fn app_context(
     ModuleAssetContextVc::new(
         TransitionsByNameVc::cell(transitions),
         get_server_compile_time_info(ssr_ty, env, server_addr),
-        get_server_module_options_context(project_path, execution_context, ssr_ty, next_config),
+        get_server_module_options_context(
+            project_path,
+            execution_context,
+            ssr_ty,
+            mode,
+            next_config,
+        ),
         get_server_resolve_options_context(project_path, ssr_ty, next_config, execution_context),
     )
     .into()
@@ -661,7 +677,10 @@ import BOOTSTRAP from {};
                 context,
                 Value::new(EcmascriptModuleAssetType::Typescript),
                 EcmascriptInputTransformsVc::cell(vec![
-                    EcmascriptInputTransform::React { refresh: false },
+                    EcmascriptInputTransform::React {
+                        refresh: false,
+                        development: true,
+                    },
                     EcmascriptInputTransform::TypeScript {
                         use_define_for_class_fields: false,
                     },

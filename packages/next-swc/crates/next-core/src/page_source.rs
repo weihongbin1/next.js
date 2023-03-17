@@ -46,6 +46,7 @@ use crate::{
     embed_js::{next_asset, next_js_file},
     env::env_for_js,
     fallback::get_fallback_page,
+    mode::NextMode,
     next_client::{
         context::{
             get_build_client_assets_path, get_client_compile_time_info,
@@ -71,7 +72,8 @@ use crate::{
     },
     page_loader::create_page_loader,
     pages_structure::{
-        OptionPagesStructureVc, PagesStructure, PagesStructureItem, PagesStructureVc,
+        OptionPagesStructureVc, PagesDirectoryStructure, PagesDirectoryStructureVc, PagesStructure,
+        PagesStructureItem, PagesStructureVc,
     },
     util::{parse_config_from_source, pathname_for_path, NextRuntime},
 };
@@ -95,6 +97,7 @@ pub async fn create_page_source(
     };
     let pages_dir = pages_structure.project_path().resolve().await?;
 
+    let mode = Value::new(NextMode::Development);
     let client_ty = Value::new(ClientContextType::Pages { pages_dir });
     let server_ty = Value::new(ServerContextType::Pages { pages_dir });
     let server_data_ty = Value::new(ServerContextType::PagesData { pages_dir });
@@ -105,6 +108,7 @@ pub async fn create_page_source(
         execution_context,
         client_compile_time_info.environment(),
         client_ty,
+        mode,
         next_config,
     );
     let client_resolve_options_context =
@@ -166,13 +170,19 @@ pub async fn create_page_source(
     let server_resolve_options_context =
         get_server_resolve_options_context(project_path, server_ty, next_config, execution_context);
 
-    let server_module_options_context =
-        get_server_module_options_context(project_path, execution_context, server_ty, next_config);
+    let server_module_options_context = get_server_module_options_context(
+        project_path,
+        execution_context,
+        server_ty,
+        mode,
+        next_config,
+    );
 
     let server_data_module_options_context = get_server_module_options_context(
         project_path,
         execution_context,
         server_data_ty,
+        mode,
         next_config,
     );
 
@@ -186,6 +196,7 @@ pub async fn create_page_source(
                     project_path,
                     execution_context,
                     client_ty,
+                    mode,
                     server_root,
                     client_compile_time_info,
                     next_config,
@@ -264,7 +275,7 @@ pub async fn create_page_source(
         SpecificityVc::not_found(),
         NextFallbackMatcherVc::new().into(),
     );
-    let page_source = create_page_source_for_directory(
+    let page_source = create_page_source_for_root_directory(
         pages_structure,
         project_path,
         env,
@@ -542,7 +553,7 @@ async fn create_not_found_page_source(
 /// Calls itself recursively for sub directories or the
 /// [create_page_source_for_file] method for files.
 #[turbo_tasks::function]
-async fn create_page_source_for_directory(
+async fn create_page_source_for_root_directory(
     pages_structure: PagesStructureVc,
     project_root: FileSystemPathVc,
     env: ProcessEnvVc,
@@ -556,6 +567,140 @@ async fn create_page_source_for_directory(
     node_root: FileSystemPathVc,
 ) -> Result<ContentSourceVc> {
     let PagesStructure {
+        ref app,
+        ref document,
+        ref error,
+        ref api,
+        ref pages,
+    } = *pages_structure.await?;
+    let mut sources = vec![];
+
+    let app = app.await?;
+    sources.push(
+        create_page_source_for_file(
+            project_root,
+            env,
+            server_context,
+            server_data_context,
+            client_context,
+            pages_dir,
+            app.specificity,
+            SourceAssetVc::new(app.project_path).into(),
+            runtime_entries,
+            fallback_page,
+            client_root,
+            app.next_router_path,
+            false,
+            node_root,
+            node_root,
+        )
+        .issue_context(app.project_path, "Next.js pages/_app"),
+    );
+
+    let document = document.await?;
+    sources.push(
+        create_page_source_for_file(
+            project_root,
+            env,
+            server_context,
+            server_data_context,
+            client_context,
+            pages_dir,
+            document.specificity,
+            SourceAssetVc::new(document.project_path).into(),
+            runtime_entries,
+            fallback_page,
+            client_root,
+            document.next_router_path,
+            false,
+            node_root,
+            node_root,
+        )
+        .issue_context(document.project_path, "Next.js pages/_document"),
+    );
+
+    let error = error.await?;
+    sources.push(
+        create_page_source_for_file(
+            project_root,
+            env,
+            server_context,
+            server_data_context,
+            client_context,
+            pages_dir,
+            error.specificity,
+            SourceAssetVc::new(error.project_path).into(),
+            runtime_entries,
+            fallback_page,
+            client_root,
+            error.next_router_path,
+            false,
+            node_root,
+            node_root,
+        )
+        .issue_context(error.project_path, "Next.js pages/_error"),
+    );
+
+    sources.push(
+        create_page_source_for_directory(
+            *pages,
+            project_root,
+            env,
+            server_context,
+            server_data_context,
+            client_context,
+            pages_dir,
+            runtime_entries,
+            fallback_page,
+            client_root,
+            true,
+            node_root,
+        )
+        .issue_context(pages.await?.project_path, "Next.js pages directory"),
+    );
+
+    if let Some(api) = api {
+        sources.push(
+            create_page_source_for_directory(
+                *api,
+                project_root,
+                env,
+                server_context,
+                server_data_context,
+                client_context,
+                pages_dir,
+                runtime_entries,
+                fallback_page,
+                client_root,
+                true,
+                node_root,
+            )
+            .issue_context(api.await?.project_path, "Next.js pages/api directory"),
+        );
+    }
+
+    Ok(CombinedContentSource { sources }.cell().into())
+}
+
+/// Handles a directory in the pages directory (or the pages directory itself).
+/// Calls itself recursively for sub directories or the
+/// [create_page_source_for_file] method for files.
+#[turbo_tasks::function]
+async fn create_page_source_for_directory(
+    pages_structure: PagesDirectoryStructureVc,
+    project_root: FileSystemPathVc,
+    env: ProcessEnvVc,
+    server_context: AssetContextVc,
+    server_data_context: AssetContextVc,
+    client_context: AssetContextVc,
+    pages_dir: FileSystemPathVc,
+    runtime_entries: EcmascriptChunkPlaceablesVc,
+    fallback_page: DevHtmlAssetVc,
+    client_root: FileSystemPathVc,
+    is_api_path: bool,
+    node_root: FileSystemPathVc,
+) -> Result<ContentSourceVc> {
+    let PagesDirectoryStructure {
         ref items,
         ref children,
         ..
@@ -563,52 +708,28 @@ async fn create_page_source_for_directory(
     let mut sources = vec![];
 
     for item in items.iter() {
-        let source = match *item.await? {
-            PagesStructureItem::Page {
-                project_path,
-                next_router_path,
-                specificity,
-            } => create_page_source_for_file(
-                project_root,
-                env,
-                server_context,
-                server_data_context,
-                client_context,
-                pages_dir,
-                specificity,
-                SourceAssetVc::new(project_path).into(),
-                runtime_entries,
-                fallback_page,
-                client_root,
-                next_router_path,
-                false,
-                node_root,
-                node_root,
-            )
-            .issue_context(project_path, "Next.js pages directory"),
-            PagesStructureItem::Api {
-                project_path,
-                next_router_path,
-                specificity,
-            } => create_page_source_for_file(
-                project_root,
-                env,
-                server_context,
-                server_data_context,
-                client_context,
-                pages_dir,
-                specificity,
-                SourceAssetVc::new(project_path).into(),
-                runtime_entries,
-                fallback_page,
-                client_root,
-                next_router_path,
-                true,
-                node_root,
-                node_root,
-            )
-            .issue_context(project_path, "Next.js pages api directory"),
-        };
+        let PagesStructureItem {
+            project_path,
+            specificity,
+            next_router_path,
+        } = *item.await?;
+        let source = create_page_source_for_file(
+            project_root,
+            env,
+            server_context,
+            server_data_context,
+            client_context,
+            pages_dir,
+            specificity,
+            SourceAssetVc::new(project_path).into(),
+            runtime_entries,
+            fallback_page,
+            client_root,
+            next_router_path,
+            is_api_path,
+            node_root,
+            node_root,
+        );
         sources.push(source);
     }
 
@@ -624,6 +745,7 @@ async fn create_page_source_for_directory(
             runtime_entries,
             fallback_page,
             client_root,
+            is_api_path,
             node_root,
         ))
     }
@@ -723,7 +845,10 @@ impl SsrEntryVc {
                     EcmascriptInputTransform::TypeScript {
                         use_define_for_class_fields: false,
                     },
-                    EcmascriptInputTransform::React { refresh: false },
+                    EcmascriptInputTransform::React {
+                        refresh: false,
+                        development: true,
+                    },
                 ]),
                 this.context.compile_time_info(),
                 InnerAssetsVc::cell(inner_assets),

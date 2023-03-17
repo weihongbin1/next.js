@@ -35,6 +35,7 @@ use turbopack_node::{
 
 use crate::{
     embed_js::{next_asset, next_js_file},
+    mode::NextMode,
     next_config::NextConfigVc,
     next_edge::{
         context::{get_edge_compile_time_info, get_edge_resolve_options_context},
@@ -286,6 +287,7 @@ fn edge_transition_map(
         project_path,
         execution_context,
         Value::new(ServerContextType::Middleware),
+        Value::new(NextMode::Development),
         next_config,
     );
 

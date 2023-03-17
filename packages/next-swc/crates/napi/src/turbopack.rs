@@ -1,4 +1,4 @@
-use std::convert::TryFrom;
+use std::{convert::TryFrom, path::PathBuf};
 
 use crate::util::MapErr;
 use napi::bindgen_prelude::*;
@@ -93,6 +93,16 @@ impl FromNapiValue for RouteHas {
 
 #[napi]
 pub async fn next_build(ctx: NextBuildContext) -> napi::Result<()> {
-    println!("ctx: {:?}", ctx);
-    Ok(())
+    next_binding::turbo::next_build::build(next_binding::turbo::next_build::BuildOptions {
+        dir: ctx.dir.map(|path| PathBuf::from(path)),
+        root: None,
+        display_version: false,
+        log_level: None,
+        show_all: true,
+        log_detail: true,
+        full_stats: true,
+        memory_limit: None,
+    })
+    .await
+    .convert_err()
 }

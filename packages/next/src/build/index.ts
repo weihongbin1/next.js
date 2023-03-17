@@ -1015,7 +1015,7 @@ export default async function build(
 
       async function runTurboBuild() {
         const turboNextBuildStart = process.hrtime()
-        await binding.turbo.nextBuild()
+        await binding.turbo.nextBuild(NextBuildContext)
         const [duration] = process.hrtime(turboNextBuildStart)
         return { duration, turbotraceContext: null }
       }
@@ -1651,6 +1651,7 @@ export default async function build(
                       err.message !== 'INVALID_DEFAULT_EXPORT'
                     )
                       throw err
+                    console.error(err)
                     invalidPages.add(page)
                   }
                 }
@@ -2153,6 +2154,7 @@ export default async function build(
         !customAppGetInitialProps && (!hasNonStaticErrorPage || hasPages404)
 
       if (invalidPages.size > 0) {
+        console.error(invalidPages)
         const err = new Error(
           `Build optimization failed: found page${
             invalidPages.size === 1 ? '' : 's'

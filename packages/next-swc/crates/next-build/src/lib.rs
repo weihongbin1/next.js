@@ -1,7 +1,6 @@
 #![feature(min_specialization)]
 
-pub(crate) mod build_context;
-pub mod build_options;
+pub(crate) mod build_options;
 pub(crate) mod next_build;
 pub(crate) mod next_pages;
 
@@ -9,7 +8,7 @@ use anyhow::Result;
 use turbo_tasks::{run_once, TransientInstance, TurboTasks};
 use turbo_tasks_memory::MemoryBackend;
 
-use crate::build_options::BuildOptions;
+pub use crate::build_options::BuildOptions;
 
 pub async fn build(options: BuildOptions) -> Result<()> {
     #[cfg(feature = "tokio_console")]
