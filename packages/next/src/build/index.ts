@@ -256,7 +256,8 @@ export default async function build(
   runLint = true,
   noMangling = false,
   appDirOnly = false,
-  turboNextBuild = false
+  turboNextBuild = false,
+  turboNextBuildRoot = null
 ): Promise<void> {
   try {
     const nextBuildSpan = trace('next-build', undefined, {
@@ -1015,7 +1016,19 @@ export default async function build(
 
       async function runTurboBuild() {
         const turboNextBuildStart = process.hrtime()
-        await binding.turbo.nextBuild(NextBuildContext)
+
+        const turboJson = findUp.sync('turbo.json', { cwd: dir })
+        // eslint-disable-next-line no-shadow
+        const packagePath = findUp.sync('package.json', { cwd: dir })
+
+        let root =
+          turboNextBuildRoot ??
+          (turboJson
+            ? path.dirname(turboJson)
+            : packagePath
+            ? path.dirname(packagePath)
+            : undefined)
+        await binding.turbo.nextBuild({ ...NextBuildContext, root })
         const [duration] = process.hrtime(turboNextBuildStart)
         return { duration, turbotraceContext: null }
       }

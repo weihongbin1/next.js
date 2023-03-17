@@ -13,6 +13,9 @@ pub async fn start_turbo_dev(options: Buffer) -> napi::Result<()> {
 #[napi(object, object_to_js = false)]
 #[derive(Debug)]
 pub struct NextBuildContext {
+    // Added by Next.js for next build --turbo specifically.
+    pub root: Option<String>,
+
     pub dir: Option<String>,
     pub app_dir: Option<String>,
     pub pages_dir: Option<String>,
@@ -95,7 +98,7 @@ impl FromNapiValue for RouteHas {
 pub async fn next_build(ctx: NextBuildContext) -> napi::Result<()> {
     next_binding::turbo::next_build::build(next_binding::turbo::next_build::BuildOptions {
         dir: ctx.dir.map(|path| PathBuf::from(path)),
-        root: None,
+        root: ctx.root.map(|path| PathBuf::from(path)),
         display_version: false,
         log_level: None,
         show_all: true,

@@ -316,6 +316,14 @@ pub(crate) async fn next_build(options: TransientInstance<BuildOptions>) -> Resu
         react_loadable_manifest_path
             .write(FileContent::Content(react_loadable_manifest.into()).cell())
             .await?;
+
+        let app_build_manifest = serde_json::to_string_pretty(&AppBuildManifest {
+            ..Default::default()
+        })?;
+        let app_build_manifest_path = node_root.join("app-build-manifest.json");
+        app_build_manifest_path
+            .write(FileContent::Content(app_build_manifest.into()).cell())
+            .await?;
     }
 
     let app_structure = find_app_structure(project_root, client_root, next_config);
@@ -384,6 +392,12 @@ struct FontManifest(Vec<FontManifestEntry>);
 struct FontManifestEntry {
     url: String,
     content: String,
+}
+
+#[derive(Serialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct AppBuildManifest {
+    pages: HashMap<String, Vec<String>>,
 }
 
 #[turbo_tasks::function]
