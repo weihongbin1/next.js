@@ -118,7 +118,6 @@ export function requirePage(
     })
   }
   const exp = require(pagePath)
-  console.log('requiring page', page, 'at', pagePath, 'got', exp)
   return exp
 }
 

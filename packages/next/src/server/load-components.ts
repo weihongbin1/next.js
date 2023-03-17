@@ -122,8 +122,6 @@ async function loadComponentsImpl({
       : null,
   ])
 
-  console.log({ ComponentMod, DocumentMod, AppMod, pathname })
-  ;(ComponentMod as any).default
   const Component = interopDefault(ComponentMod)
   const Document = interopDefault(DocumentMod)
   const App = interopDefault(AppMod)
