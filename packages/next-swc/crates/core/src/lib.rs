@@ -40,7 +40,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::{path::PathBuf, sync::Arc};
 
-use next_binding::swc::core::{
+use turbo_binding::swc::core::{
     common::{chain, comments::Comments, pass::Optional, FileName, SourceFile, SourceMap},
     ecma::ast::EsVersion,
     ecma::parser::parse_file_as_module,
@@ -67,7 +67,7 @@ mod top_level_binding_collector;
 #[serde(rename_all = "camelCase")]
 pub struct TransformOptions {
     #[serde(flatten)]
-    pub swc: next_binding::swc::core::base::config::Options,
+    pub swc: turbo_binding::swc::core::base::config::Options,
 
     #[serde(default)]
     pub disable_next_ssg: bool,
@@ -97,7 +97,7 @@ pub struct TransformOptions {
     pub styled_jsx: bool,
 
     #[serde(default)]
-    pub styled_components: Option<next_binding::swc::custom_transform::styled_components::Config>,
+    pub styled_components: Option<turbo_binding::swc::custom_transform::styled_components::Config>,
 
     #[serde(default)]
     pub remove_console: Option<remove_console::Config>,
@@ -119,10 +119,11 @@ pub struct TransformOptions {
     pub shake_exports: Option<shake_exports::Config>,
 
     #[serde(default)]
-    pub emotion: Option<next_binding::swc::custom_transform::emotion::EmotionOptions>,
+    pub emotion: Option<turbo_binding::swc::custom_transform::emotion::EmotionOptions>,
 
     #[serde(default)]
-    pub modularize_imports: Option<next_binding::swc::custom_transform::modularize_imports::Config>,
+    pub modularize_imports:
+        Option<turbo_binding::swc::custom_transform::modularize_imports::Config>,
 
     #[serde(default)]
     pub font_loaders: Option<next_transform_font::Config>,
@@ -171,7 +172,7 @@ where
         },
         if opts.styled_jsx {
             Either::Left(
-                next_binding::swc::custom_transform::styled_jsx::visitor::styled_jsx(
+                turbo_binding::swc::custom_transform::styled_jsx::visitor::styled_jsx(
                     cm.clone(),
                     file.name.clone(),
                 ),
@@ -181,7 +182,7 @@ where
         },
         match &opts.styled_components {
             Some(config) => Either::Left(
-                next_binding::swc::custom_transform::styled_components::styled_components(
+                turbo_binding::swc::custom_transform::styled_components::styled_components(
                     file.name.clone(),
                     file.src_hash,
                     config.clone(),
@@ -235,7 +236,7 @@ where
                 if let FileName::Real(path) = &file.name {
                     path.to_str().map(|_| {
                         Either::Left(
-                            next_binding::swc::custom_transform::emotion::EmotionTransformer::new(
+                            turbo_binding::swc::custom_transform::emotion::EmotionTransformer::new(
                                 config.clone(),
                                 path,
                                 cm,
@@ -250,7 +251,7 @@ where
             .unwrap_or_else(|| Either::Right(noop())),
         match &opts.modularize_imports {
             Some(config) => Either::Left(
-                next_binding::swc::custom_transform::modularize_imports::modularize_imports(
+                turbo_binding::swc::custom_transform::modularize_imports::modularize_imports(
                     config.clone()
                 )
             ),

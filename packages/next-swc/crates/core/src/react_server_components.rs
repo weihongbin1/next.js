@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use regex::Regex;
 use serde::Deserialize;
 
-use next_binding::swc::core::{
+use turbo_binding::swc::core::{
     common::{
         comments::{Comment, CommentKind, Comments},
         errors::HANDLER,

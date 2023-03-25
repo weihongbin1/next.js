@@ -3,16 +3,16 @@ use turbo_tasks::{
     primitives::{BoolVc, StringVc},
     Value,
 };
-use turbo_tasks_fs::{FileSystemEntryType, FileSystemPathVc};
-use turbopack::{
+use turbo_binding::turbo::tasks_fs::{FileSystemEntryType, FileSystemPathVc};
+use turbo_binding::turbopack::turbopack::{
     module_options::WebpackLoadersOptionsVc, resolve_options,
     resolve_options_context::ResolveOptionsContext,
 };
-use turbopack_core::{
+use turbo_binding::turbopack::core::{
     issue::{Issue, IssueSeverity, IssueSeverityVc, IssueVc},
     resolve::{parse::RequestVc, pattern::Pattern, resolve},
 };
-use turbopack_node::transforms::webpack::{WebpackLoaderConfigItem, WebpackLoaderConfigItemsVc};
+use turbo_binding::turbopack::node::transforms::webpack::{WebpackLoaderConfigItem, WebpackLoaderConfigItemsVc};
 
 const BABEL_CONFIG_FILES: &[&str] = &[
     ".babelrc",

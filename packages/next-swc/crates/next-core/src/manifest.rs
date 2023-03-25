@@ -7,13 +7,13 @@ use turbo_tasks::{
     primitives::{StringVc, StringsVc},
     TryJoinIterExt,
 };
-use turbo_tasks_fs::File;
-use turbopack_core::asset::AssetContentVc;
-use turbopack_dev_server::source::{
+use turbo_binding::turbo::tasks_fs::File;
+use turbo_binding::turbopack::core::asset::AssetContentVc;
+use turbo_binding::turbopack::dev_server::source::{
     ContentSource, ContentSourceContentVc, ContentSourceData, ContentSourceResultVc,
     ContentSourceVc,
 };
-use turbopack_node::render::{
+use turbo_binding::turbopack::node::render::{
     node_api_source::NodeApiContentSourceVc, rendered_source::NodeRenderContentSourceVc,
 };
 

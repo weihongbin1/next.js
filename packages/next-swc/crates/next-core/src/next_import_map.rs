@@ -2,9 +2,9 @@ use std::collections::{BTreeMap, HashMap};
 
 use anyhow::{Context, Result};
 use turbo_tasks::Value;
-use turbo_tasks_fs::{glob::GlobVc, FileSystem, FileSystemPathVc};
-use turbopack::{resolve_options, resolve_options_context::ResolveOptionsContext};
-use turbopack_core::{
+use turbo_binding::turbo::tasks_fs::{glob::GlobVc, FileSystem, FileSystemPathVc};
+use turbo_binding::turbopack::turbopack::{resolve_options, resolve_options_context::ResolveOptionsContext};
+use turbo_binding::turbopack::core::{
     asset::Asset,
     resolve::{
         options::{
@@ -16,7 +16,7 @@ use turbopack_core::{
         resolve, AliasPattern, ExportsValue, ResolveAliasMapVc,
     },
 };
-use turbopack_node::execution_context::ExecutionContextVc;
+use turbo_binding::turbopack::node::execution_context::ExecutionContextVc;
 
 use crate::{
     embed_js::{next_js_fs, VIRTUAL_PACKAGE_NAME},

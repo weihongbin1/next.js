@@ -3,9 +3,9 @@ use std::collections::HashMap;
 
 use anyhow::Result;
 use turbo_tasks::{primitives::StringVc, Value};
-use turbo_tasks_env::ProcessEnvVc;
-use turbo_tasks_fs::{FileSystem, FileSystemPathVc};
-use turbopack::{
+use turbo_binding::turbo::tasks_env::ProcessEnvVc;
+use turbo_binding::turbo::tasks_fs::{FileSystem, FileSystemPathVc};
+use turbo_binding::turbopack::turbopack::{
     module_options::{
         module_options_context::{ModuleOptionsContext, ModuleOptionsContextVc},
         JsxTransformOptions, PostCssTransformOptions, WebpackLoadersOptions,
@@ -14,7 +14,7 @@ use turbopack::{
     transition::TransitionsByNameVc,
     ModuleAssetContextVc,
 };
-use turbopack_core::{
+use turbo_binding::turbopack::core::{
     chunk::ChunkingContextVc,
     compile_time_defines,
     compile_time_info::{CompileTimeDefinesVc, CompileTimeInfo, CompileTimeInfoVc},
@@ -22,9 +22,9 @@ use turbopack_core::{
     environment::{BrowserEnvironment, EnvironmentIntention, EnvironmentVc, ExecutionEnvironment},
     resolve::{parse::RequestVc, pattern::Pattern},
 };
-use turbopack_dev::DevChunkingContextVc;
-use turbopack_env::ProcessEnvAssetVc;
-use turbopack_node::execution_context::ExecutionContextVc;
+use turbo_binding::turbopack::dev::DevChunkingContextVc;
+use turbo_binding::turbopack::env::ProcessEnvAssetVc;
+use turbo_binding::turbopack::node::execution_context::ExecutionContextVc;
 
 use super::transforms::get_next_client_transforms_rules;
 use crate::{

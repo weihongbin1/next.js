@@ -1,20 +1,20 @@
 use anyhow::Result;
 use indexmap::indexmap;
 use turbo_tasks::{primitives::OptionStringVc, Value};
-use turbopack::{
+use turbo_binding::turbopack::turbopack::{
     ecmascript::chunk_group_files_asset::ChunkGroupFilesAsset,
     module_options::ModuleOptionsContextVc,
     resolve_options_context::ResolveOptionsContextVc,
     transition::{Transition, TransitionVc},
     ModuleAssetContextVc,
 };
-use turbopack_core::{
+use turbo_binding::turbopack::core::{
     asset::AssetVc,
     chunk::{ChunkingContext, ChunkingContextVc},
     compile_time_info::CompileTimeInfoVc,
     context::AssetContext,
 };
-use turbopack_ecmascript::{
+use turbo_binding::turbopack::ecmascript:: {
     EcmascriptInputTransform, EcmascriptInputTransformsVc, EcmascriptModuleAssetType,
     EcmascriptModuleAssetVc, InnerAssetsVc,
 };

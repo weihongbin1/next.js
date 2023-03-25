@@ -1,7 +1,7 @@
 use anyhow::{Context, Result};
 use turbo_tasks::primitives::{OptionStringVc, StringVc, U32Vc};
-use turbo_tasks_hash::hash_xxh3_hash64;
-use turbopack_core::resolve::pattern::QueryMapVc;
+use turbo_binding::turbo::tasks_hash::hash_xxh3_hash64;
+use turbo_binding::turbopack::core::resolve::pattern::QueryMapVc;
 
 #[turbo_tasks::value(shared)]
 pub(crate) struct FontCssProperties {

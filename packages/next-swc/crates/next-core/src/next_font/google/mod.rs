@@ -5,8 +5,8 @@ use turbo_tasks::{
     primitives::{OptionStringVc, StringVc, U32Vc},
     Value,
 };
-use turbo_tasks_fs::{json::parse_json_with_source_context, FileContent, FileSystemPathVc};
-use turbopack_core::{
+use turbo_binding::turbo::tasks_fs::{json::parse_json_with_source_context, FileContent, FileSystemPathVc};
+use turbo_binding::turbopack::core::{
     resolve::{
         options::{
             ImportMapResult, ImportMapResultVc, ImportMapping, ImportMappingReplacement,
@@ -18,7 +18,7 @@ use turbopack_core::{
     },
     virtual_asset::VirtualAssetVc,
 };
-use turbopack_node::execution_context::ExecutionContextVc;
+use turbo_binding::turbopack::node::execution_context::ExecutionContextVc;
 
 use self::{
     font_fallback::get_font_fallback,
@@ -196,8 +196,8 @@ impl ImportMappingReplacement for NextFontGoogleCssModuleReplacer {
 
         #[cfg(not(feature = "__internal_nextjs_integration_test"))]
         let stylesheet_str = {
-            use turbo_tasks_fetch::fetch;
-            use turbopack_core::issue::IssueSeverity;
+            use turbo_binding::turbo::tasks_fetch::fetch;
+            use turbo_binding::turbopack::core::issue::IssueSeverity;
 
             let stylesheet_res = fetch(
                 stylesheet_url,
@@ -290,7 +290,7 @@ async fn get_stylesheet_url_from_options(
     let mut css_url: Option<String> = None;
     #[cfg(debug_assertions)]
     {
-        use turbo_tasks_env::{CommandLineProcessEnvVc, ProcessEnv};
+        use turbo_binding::turbo::tasks_env::{CommandLineProcessEnvVc, ProcessEnv};
 
         let env = CommandLineProcessEnvVc::new();
         if let Some(url) = &*env.read("TURBOPACK_TEST_ONLY_MOCK_SERVER").await? {
@@ -383,16 +383,16 @@ async fn get_mock_stylesheet(
     use std::{collections::HashMap, path::Path};
 
     use turbo_tasks::{CompletionVc, Value};
-    use turbo_tasks_env::{CommandLineProcessEnvVc, ProcessEnv};
-    use turbo_tasks_fs::{
+    use turbo_binding::turbo::tasks_env::{CommandLineProcessEnvVc, ProcessEnv};
+    use turbo_binding::turbo::tasks_fs::{
         json::parse_json_with_source_context, DiskFileSystemVc, File, FileSystem,
     };
-    use turbopack::evaluate_context::node_evaluate_asset_context;
-    use turbopack_core::{context::AssetContext, ident::AssetIdentVc};
-    use turbopack_ecmascript::{
+    use turbo_binding::turbopack::turbopack::evaluate_context::node_evaluate_asset_context;
+    use turbo_binding::turbopack::core::{context::AssetContext, ident::AssetIdentVc};
+    use turbo_binding::turbopack::ecmascript:: {
         EcmascriptInputTransformsVc, EcmascriptModuleAssetType, EcmascriptModuleAssetVc,
     };
-    use turbopack_node::{
+    use turbo_binding::turbopack::node::{
         evaluate::{evaluate, JavaScriptValue},
         execution_context::ExecutionContext,
     };
