@@ -15,7 +15,6 @@ body:
       options:
         - label: I verified that the issue exists in the latest Next.js canary release
           required: true
-      options:
         - label: 必须选择
           required: true
   - type: textarea
