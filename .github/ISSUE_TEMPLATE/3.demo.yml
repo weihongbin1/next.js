@@ -2,7 +2,7 @@ name: 测试Issue模版名字
 description: Issue模版描述
 labels: bug, 测试Issue模版标签
 assignees: weihongbin1, 测试Issue模版审查者
-title: "Issue 的标题 <title> 66"
+title: "[BUG] <title>"
 body:
   - type: markdown
     attributes:
