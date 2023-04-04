@@ -1,6 +1,7 @@
-name: 测试Issue模版
-description: 测试Issue模版Desc
-labels: ['template: bug模版']
+name: 测试Issue模版名字
+description: Issue模版描述
+labels: bug, 测试Issue模版标签
+assignees: weihongbin1, 测试Issue模版审查者
 body:
   - type: markdown
     attributes:
